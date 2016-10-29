@@ -1,8 +1,9 @@
 library(ggplot2)
 library(grid)
+library(cowplot)
 
 data("diamonds")
-data <- diamonds
+diamonds
 
 # 1
 frequency_table <- function(data_frame){
@@ -72,7 +73,7 @@ R_squared <- function(data_frame){
 # R_squared(diamonds)
 
 # 2.c
-Pearson_coeff <- function(data_frame,threshold){
+Pearson_coeff <- function(data_frame,threshold=0.5){
   # this function can accept any dataframe as a parameter and returns a dataframe 
   # that contains each pair of column names in the first column in a single string
   # separated by a -, e.g. for the variables x and y, the string is “x-y”.
@@ -81,7 +82,7 @@ Pearson_coeff <- function(data_frame,threshold){
   # is greater than the correlation threshold
   
   # parameter: data_frame (data frame)
-  #            threshold (numeric)
+  #            threshold (numeric) with default 0.5
   
   # return: a two column data frame
   # type: data frame
@@ -116,45 +117,7 @@ Pearson_coeff <- function(data_frame,threshold){
 
 # 3
 
-# The multiplot is extracted from R-cookbook. It combines subplots plots into a grid and prints it 
-# Reference: http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
-
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-  
-  numPlots = length(plots)
-  
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                     ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-  
-  if (numPlots==1) {
-    print(plots[[1]])
-    
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
-
-plot_density_count <- function(data_frame,switch,vector){
+plot_density_count <- function(data_frame,switch="off",vector=NULL){
   # This function works like this: If the plot switch parameter is “on” or “grid”,
   # then plot a pair of blue histograms with a vertical red line at the mean (one 
   # using counts and the other density) for every numerical variable at each number 
@@ -164,77 +127,127 @@ plot_density_count <- function(data_frame,switch,vector){
   # and a vector of three bin number integers, the function should generate 30 individual 
   # plots or a total of 6 grid plots (with each grid plot containing 5 subplots).
   
-  # parameters: data_frame (type:data frame,range:(0,1))
-  #             switch (type:char,range:"on""off""grid")
-  #             vector (type:vector,range:integers)
+  # parameters: data_frame (type:data frame)
+  #             switch (type:char,range:"on""off""grid") with default "off"
+  #             vector (type:vector,range:integer vectors) with default NULL
   
   # return: plots
   num <- data_frame[,sapply(data_frame,is.numeric)]    # extract numeric var from data frame
   
-  # "on" condition
-  if(switch == "on"){
-    # use for loops to plot each pair of plots with different vars and different bins
-    for(j in 1:length(vector)){
+  # vector != NULL condition
+  if(!is.null(vector)){
+    # "on" condition
+    if(switch == "on"){
+      # use for loops to plot each pair of plots with different vars and different bins
+      for(j in 1:length(vector)){
+        for(i in 1:ncol(num)){
+          # plot histogram for count and density
+          p1 <- ggplot(num,aes(x=num[i]),color = "blue")+
+            geom_histogram(fill="blue",bins = vector[j])+
+            ggtitle(paste(colnames(num[i]),vector[j],sep=" bins="))+
+            xlab(colnames(num[i]))+
+            geom_vline(xintercept = mean(num[,i]),col="red")
+          
+          p2 <- ggplot(num,aes(x=num[i],..density..))+
+            geom_histogram(fill="blue",bins = vector[j])+
+            ggtitle(paste(colnames(num[i]),vector[j],sep=" bins="))+
+            xlab(colnames(num[i]))+
+            geom_vline(xintercept = mean(num[,i]),col="red")
+          # create a new page
+          grid.newpage()
+          # split the screen into 2 parts.
+          pushViewport(viewport(layout = grid.layout(2, 2, heights = unit(c(1, 8), "null"))))
+          # add title into specific location
+          title <- paste(colnames(num[i]),vector[j],sep=" bin=")
+          grid.text(title, vp = viewport(layout.pos.row = 1, layout.pos.col = 1:2))
+          # print plots in pairs
+          print(p1, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+          print(p2, vp = viewport(layout.pos.row = 2, layout.pos.col = 2))
+        }
+      }
+    }
+    else{
+      # "grid" condition
+      if(switch == "grid"){
+        # use for loops to plot each grid(in each grid,subplots has the same var.) of plots with different vars and different bins
+        for(j in 1:length(vector)){
+          plot_count <- list()     # initial a list for count-plots
+          plot_density <-  list()  # initial a list for density-plots
+          for(i in 1:ncol(num)){
+            # add plots to the count list and density list
+            plot_count[[i]] <- ggplot(num, aes_string(colnames(num[i]))) + 
+              geom_histogram(bins=vector[j],fill="blue")+
+              geom_vline(xintercept=mean(num[,i]),color="red")+
+              labs(title= paste(vector[j], "bins"))+
+              xlab(colnames(num)[i])
+            plot_density[[i]] <- ggplot(num, aes_string(colnames(num[i]))) + 
+              geom_histogram(aes(y=..density..),bins=vector[j],fill="blue")+
+              geom_vline(xintercept=mean(num[,i]),color="red")+
+              labs(title= paste(vector[j], "bins"))+
+              xlab(colnames(num)[i])
+          }
+          # plot subplots into one plot
+          print(plot_grid(plotlist=plot_count))
+          print(plot_grid(plotlist=plot_density))
+        }
+      }
+    }
+  }
+  
+  # vector == NULL condition, use the default bins in ggplot
+  else{
+    if(switch == "on"){
+      # use for loop to plot each pair of plots with different vars
       for(i in 1:ncol(num)){
         # plot histogram for count and density
         p1 <- ggplot(num,aes(x=num[i]),color = "blue")+
-          geom_histogram(fill="blue",bins = vector[j])+
-          ggtitle(paste(colnames(num[i]),vector[j],sep=" bins="))+
+          geom_histogram(fill="blue")+
           xlab(colnames(num[i]))+
           geom_vline(xintercept = mean(num[,i]),col="red")
         
         p2 <- ggplot(num,aes(x=num[i],..density..))+
-          geom_histogram(fill="blue",bins = vector[j])+
-          ggtitle(paste(colnames(num[i]),vector[j],sep=" bins="))+
+          geom_histogram(fill="blue")+
           xlab(colnames(num[i]))+
           geom_vline(xintercept = mean(num[,i]),col="red")
         # create a new page
         grid.newpage()
         # split the screen into 2 parts.
         pushViewport(viewport(layout = grid.layout(2, 2, heights = unit(c(1, 8), "null"))))
-        # add title into specific location
-        title <- paste(colnames(num[i]),vector[j],sep=" bin=")
-        grid.text(title, vp = viewport(layout.pos.row = 1, layout.pos.col = 1:2))
         # print plots in pairs
         print(p1, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
         print(p2, vp = viewport(layout.pos.row = 2, layout.pos.col = 2))
-        
-      }
-    }
-    
-  }
-  # other conditions
-  else{
-    # "grid" condition
-    if(switch == "grid"){
-      # use for loops to plot each grid(in each grid,subplots has the same var.) of plots with different vars and different bins
-      for(j in 1:length(vector)){
-        grid.newpage()
-        his_count <-list()     # initial a list for count-plots
-        his_density <- list()  # initial a list for density-plots
-        for(i in 1:ncol(num)){
-          # add plot to the count list
-          his_count[[i]] <- ggplot(num, aes_string(colnames(num[i])), color = "blue") + 
-            geom_histogram(fill="blue", bins=vector[j])+ 
-            labs(title= paste(vector[j], "bins"))
         }
-        # plot subplots into one plot
-        multiplot(plotlist = his_count, cols = 2)  
-        
-        for(i in 1:ncol(num)){
-          # add plot to the density list
-          his_density <- ggplot(num, aes_string(colnames(num[i])), color = "blue") + 
-            geom_histogram(aes(y= ..density..), fill="blue", bins=vector[j])+ 
-            labs(title= paste(vector[j], "bins"))
-        }
-        # plot subplots into one plot
-        multiplot(plotlist = his_density, cols = 3)  
       }
-    }
-  }
+    else{
+      # "grid" condition
+      if(switch == "grid"){
+        # use for loops to plot each grid(in each grid,subplots has the same var.) of plots with different vars and different bins
+        plot_count <- list()     # initial a list for count-plots
+        plot_density <-  list()  # initial a list for density-plots
+        for(i in 1:ncol(num)){
+          # add plots to the count list and density list
+          plot_count[[i]] <- ggplot(num, aes_string(colnames(num[i]))) + 
+            geom_histogram(fill="blue")+
+            geom_vline(xintercept=mean(num[,i]),color="red")+
+            xlab(colnames(num)[i])
+          plot_density[[i]] <- ggplot(num, aes_string(colnames(num[i]))) + 
+            geom_histogram(aes(y=..density..),fill="blue")+
+            geom_vline(xintercept=mean(num[,i]),color="red")+
+            xlab(colnames(num)[i])
+          }
+          # plot subplots into one plot
+          print(plot_grid(plotlist=plot_count))
+          print(plot_grid(plotlist=plot_density))
+        }
+      }
+   }
 }
 # check
-plot_density_count(diamonds,"grid",c(30,70))
+#plot_density_count(diamonds,"on",c(30,50))
+#plot_density_count(diamonds,"grid",c(30,70))
+#plot_density_count(diamonds,"grid")
+
+
 
 # 4
 
@@ -247,12 +260,12 @@ is.binary <- function(v) {
 }
 
 
-plot_categorical <- function(data_frame,switch){
+plot_categorical <- function(data_frame,switch="off"){
   # This function works like this: if the plot switch parameter is “on” or “grid”,
   # plot a gray bar graph for every categorical and binary variable.
   
-  # parameters: data_frame (type:data frame,range:(0,1))
-  #             switch (type:char,range:"on""off""grid")
+  # parameters: data_frame (type:data frame)
+  #             switch (type:char,range:"on""off""grid") with default "off"
   
   # return: plots
   data_frame1 <- data_frame[,sapply(data_frame,is.factor)]
@@ -262,7 +275,6 @@ plot_categorical <- function(data_frame,switch){
   # switch/on condition
   if(switch=="on"|switch=="grid"){
     for(i in 1:ncol(new_data)){
-      grid.newpage()
       # bar plot
       p <- ggplot(new_data,aes(x=new_data[,i]))+
         geom_bar(fill='gray')+
@@ -275,10 +287,10 @@ plot_categorical <- function(data_frame,switch){
 # plot_categorical(diamonds,"on")
 
 
-explore_1.0<- function(data_frame,switch="off",threshold=0.5,bin_integer=30){
+explore_1.0<- function(data_frame,switch="off",threshold=0.5,vector=NULL){
   # main function: do things all above with default values-swithch is "off",threshold is 0.5,
   #                bin_integer is the default bins of ggplot, which is 30.
-            
+  
   
   # parameters: data_frame (type:data frame)
   #             switch (type:char,range:"on""off""grid")
@@ -291,15 +303,17 @@ explore_1.0<- function(data_frame,switch="off",threshold=0.5,bin_integer=30){
                  summary=summary_numeric(data_frame),
                  R_squared=R_squared(data_frame),
                  Pearson_coeff=Pearson_coeff(data_frame,threshold))
-  plot_density_count(data_frame,switch,bin_integer)
+  plot_density_count(data_frame,switch,vector)
   plot_categorical(data_frame,switch)
   return(mylist)
 }
 # check
-# explore(diamonds,"grid")
+#explore_1.0(diamonds,"grid")
+explore_1.0(diamonds,"grid",0.7,c(30,50))
+#explore_1.0(diamonds,"on",0.8)
 
 # 5
-explore_2.0 <- function(data_frame,switch, threshold, bin_integer){
+explore_2.0 <- function(data_frame,switch="off", threshold=0.5, vector){
   # This function work with defensive conditions of explore_1.0
   
   # parameter: same as explore_1.0
@@ -307,34 +321,48 @@ explore_2.0 <- function(data_frame,switch, threshold, bin_integer){
   
   # omit the whole row if there are any nas
   data_frame <- na.omit(data_frame)
+  
   # if the first parameter is not a dataframe, change it into a dataframe
   if(!is.data.frame(data_frame)){                 
     data_frame <- as.data.frame(data_frame)
   }
   
   # if the second parameter is not what we required, ask users to reinput it
-  if(switch != "off" && switch != "on" && switch != "grid"){  
+  while(switch != "off" && switch != "on" && switch != "grid"){  
     print("invalid input for switch")
     switch <- readline(prompt="Enter your option(off / on / grid): ")  #re-enter the input
   }
+  
   # if the second parameter is not in [0,1], ask users to reinput it
-  if(!is.numeric(threshold) || threshold < 0 || threshold >1 ){    #check to see if threshold is a valid input
+  while(!is.numeric(threshold) || threshold < 0 || threshold >1 ){    #check to see if threshold is a valid input
     print("correlation threshold must be numeric and in range [0,1]")
     threshold <- as.numeric(readline(prompt="Enter your correlation threshold: "))   #re-enter the input
   }
+  
   # check if bin vector is all numeric and all not less than 0, if so, ask users to reinput it
-  if(!is.numeric(vector)||(is.numeric(vector) && (TRUE %in% (binVec <= 0)))){ 
-    print("the bins vector must be numeric vector and not less than 0")
-    vector <-as.numeric(readline(prompt="Enter your bin vector: ")) #re-enter the bin vector
+  if(!is.null(vector)){
+    if(!is.numeric(vector)||(is.numeric(vector) && (TRUE %in% (vector <= 0)))){ 
+      print("the bins vector must be numeric vector and not less than 0, please enter new bins one by one and press 'return' to finish")
+      vector <- c()
+      bin <- 1
+      #input "return"  to finish loop
+      while(bin != ""){ 
+        #re-enter the bin vector
+        bin <- readline(prompt="Enter the number of bins: ")->bin1
+        bin1 <- as.numeric(bin1)
+        vector <- c(vector, bin1)
+      }
+      vector <- na.omit(vector) #cancel the NA
+    }
   }
   # if the bin vector is not integer, round it
   if (!is.integer(vector)) {        
     vector <- round(vector)
   }
   
-  return(explore(data_frame,switch,threshold,bin_integer))
+  return(explore_1.0(data_frame,switch,threshold,vector))
 }
 
-
-
+# check
+explore_2.0(diamonds,"osjfs",1.5, "sfsf")
 
