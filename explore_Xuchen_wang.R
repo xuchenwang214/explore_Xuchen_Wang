@@ -14,8 +14,8 @@ frequency_table <- function(data_frame){
   
   # return: frequancy tables
   # type: list
-  lapply(data_frame[,sapply(data,is.logical)],table) # do frequency table with logical var.
-  lapply(data_frame[,sapply(data,is.factor)],table)  # do frequency table with factor var.
+  lapply(data_frame[,sapply(data_frame,is.logical)],table) # do frequency table with logical var.
+  lapply(data_frame[,sapply(data_frame,is.factor)],table)  # do frequency table with factor var.
 }
 
 # check
@@ -30,7 +30,7 @@ summary_numeric <- function(data_frame){
   
   # return: summary table
   # type: list
-  summary(data_frame[,sapply(data,is.numeric)]) 
+  summary(data_frame[,sapply(data_frame,is.numeric)]) 
 }
 # check
 # summary_numeric(diamonds)
@@ -284,7 +284,7 @@ plot_categorical <- function(data_frame,switch="off"){
   }
 }
 # check
-# plot_categorical(diamonds,"on")
+# plot_categorical(diamonds,"grid")
 
 
 explore_1.0<- function(data_frame,switch="off",threshold=0.5,vector=NULL){
@@ -299,21 +299,23 @@ explore_1.0<- function(data_frame,switch="off",threshold=0.5,vector=NULL){
   # return: r list
   
   # add outcome of each function into a list
-  mylist <- list(frequency=frequency_table(data_frame),
-                 summary=summary_numeric(data_frame),
-                 R_squared=R_squared(data_frame),
-                 Pearson_coeff=Pearson_coeff(data_frame,threshold))
-  plot_density_count(data_frame,switch,vector)
-  plot_categorical(data_frame,switch)
+  mylist <- list(Frequency = frequency_table(data_frame),
+                 Summary = summary_numeric(data_frame),
+                 R_squared = R_squared(data_frame),
+                 Pearson_coeff = Pearson_coeff(data_frame,threshold),
+                 Plot_histogram = plot_density_count(data_frame,switch,vector),
+                 Plot_bar = plot_categorical(data_frame,switch))
+  
   return(mylist)
 }
 # check
 #explore_1.0(diamonds,"grid")
-explore_1.0(diamonds,"grid",0.7,c(30,50))
+#explore_1.0(diamonds,"grid",0.7,c(30,50))
+
 #explore_1.0(diamonds,"on",0.8)
 
 # 5
-explore_2.0 <- function(data_frame,switch="off", threshold=0.5, vector){
+explore_2.0 <- function(data_frame,switch="off", threshold=0.5, vector=NULL){
   # This function work with defensive conditions of explore_1.0
   
   # parameter: same as explore_1.0
@@ -354,15 +356,15 @@ explore_2.0 <- function(data_frame,switch="off", threshold=0.5, vector){
       }
       vector <- na.omit(vector) #cancel the NA
     }
-  }
-  # if the bin vector is not integer, round it
-  if (!is.integer(vector)) {        
-    vector <- round(vector)
-  }
   
+  # if the bin vector is not integer, round it
+    if (!is.integer(vector)) {        
+      vector <- round(vector)
+   }
+  }
   return(explore_1.0(data_frame,switch,threshold,vector))
 }
 
 # check
-explore_2.0(diamonds,"osjfs",1.5, "sfsf")
+explore_2.0(diamonds,"osjfs",1.5)
 
